@@ -1,5 +1,5 @@
 name: "Unified Infrastructure Request"
-description: "Self-service request form covering all cloud-governance modules with collapsible guidance and plain-text inputs."
+description: "Structured self-service request form with dropdowns and discrete fields for all cloud-governance modules."
 title: "[Infra Request]: "
 labels: ["provisioning", "stack"]
 
@@ -8,23 +8,22 @@ body:
     attributes:
       value: |
         # 🏛️ Unified Cloud Infrastructure Provisioning Form
-        This form allows you to request infrastructure provisioned directly by the **`cloud-governance`** Terraform modules.
+        Request cloud infrastructure provisioned directly by the **`cloud-governance`** Terraform modules.
         
-        ### Instructions:
-        1. Select the target **Environment** and **Region**.
-        2. Check off the modules you wish to provision under **Module Selection**.
-        3. Expand the **`<details>`** block for any module to view its exact parameters, allowed values, and defaults from `cloud-governance`.
-        4. Enter the required parameters into the corresponding text area in simple `Field: Value` format (no raw YAML syntax required).
-        5. Complete the mandatory **Governance & Metadata** section at the bottom.
+        ### 📌 Guidelines:
+        * Select your target **Environment** and **AWS Region**.
+        * Fill in the specific fields and dropdowns for the services you need.
+        * For services you **do not need**, simply leave them as `Not Requested` or blank.
+        * Complete all mandatory **Governance & Project Details** at the bottom.
 
   # ============================================================================
-  # 1. ENVIRONMENT & REGION
+  # 1. TARGET ENVIRONMENT & REGION
   # ============================================================================
   - type: dropdown
     id: environment
     attributes:
       label: "Target Environment"
-      description: "Deployment environment"
+      description: "Select the deployment environment"
       options:
         - dev
         - qa
@@ -35,8 +34,8 @@ body:
   - type: dropdown
     id: region
     attributes:
-      label: "AWS Region"
-      description: "Primary deployment region"
+      label: "Target AWS Region"
+      description: "Select primary AWS region for deployment"
       options:
         - ap-south-1
         - us-east-1
@@ -44,539 +43,878 @@ body:
       required: true
 
   # ============================================================================
-  # 2. MODULE CHECKLIST
+  # 2. STORAGE & CDN
   # ============================================================================
-  - type: checkboxes
-    id: module_checklist
+  - type: markdown
     attributes:
-      label: "Module Selection"
-      description: "Select all modules you wish to provision in this ticket. Only fill the text areas for selected modules."
+      value: |
+        ---
+        ## 🪣 1. Storage & Content Delivery
+        <details>
+        <summary><b>ℹ️ Click for S3 & CloudFront module specifications</b></summary>
+
+        * **S3 Bucket (`modules/storage/s3`)**: Names must be globally unique, lowercase alphanumeric and hyphens (3–63 chars). Bucket will be automatically prefixed with `{project_name}-`.
+        * **CloudFront CDN (`modules/cdn`)**: Global edge distribution. Requires S3 or ALB origin.
+        </details>
+
+  - type: input
+    id: s3_bucket_name
+    attributes:
+      label: "S3 - Bucket Name Suffix"
+      description: "Unique bucket name suffix (lowercase letters, numbers, hyphens). Leave blank if not requesting S3."
+      placeholder: "e.g., app-assets-data"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: s3_versioning
+    attributes:
+      label: "S3 - Versioning"
+      description: "Keep multiple versions of an object in the bucket"
       options:
-        - label: "Storage & CDN: S3 Bucket, CloudFront CDN"
-        - label: "Compute & Scheduling: EC2 Instance, SSH Key Pair, EventBridge Scheduler"
-        - label: "Databases: RDS Instance, RDS Parameter Group"
-        - label: "Networking: VPC, Public/Private Subnets, EIP, VPC Flow Logs, Route53"
-        - label: "Load Balancing: Application/Network Load Balancer (ALB/NLB), Target Group"
-        - label: "Containers & CI/CD: ECR Repository, CodeBuild, CodeDeploy, CodePipeline, CodeStar"
-        - label: "Security & IAM: Security Group, KMS Key, Secrets Manager, IAM Role/Policy, Elevated Access"
-        - label: "Observability & Notifications: CloudWatch Logs/Alerts, AWS Budget, Access Analyzer, SES"
-
-  # ============================================================================
-  # 3. STORAGE & CONTENT DELIVERY (CDN)
-  # ============================================================================
-  - type: markdown
-    attributes:
-      value: |
-        ---
-        ## 📦 Storage & Content Delivery
-
-        <details>
-        <summary><b>ℹ️ S3 Bucket Specification (modules/storage/s3)</b></summary>
-
-        * **Bucket Name** *(required)*: Unique name. Lowercase alphanumeric and hyphens (3–63 chars).
-        * **Versioning** *(default: Enabled)*: `Enabled` | `Disabled`
-        * **Encryption** *(default: AES256)*: `AES256` | `AWS-KMS`
-        * **Object Ownership** *(default: BucketOwnerEnforced)*: `BucketOwnerEnforced`
-        * **Noncurrent Expiration Days** *(default: 30)*: Days to keep old versions before deletion.
-        * **Abort Incomplete Multipart Upload Days** *(default: 7)*: Days before cleanup.
-        </details>
-
-  - type: textarea
-    id: s3_input
-    attributes:
-      label: "S3 Bucket Configuration"
-      description: "Specify parameters for S3 bucket(s). Leave blank if not requesting S3."
-      placeholder: |
-        Bucket Name: assets-storage
-        Versioning: Enabled
-        Encryption: AES256
-        Noncurrent Expiration Days: 30
+        - "Not Requested"
+        - "Enabled"
+        - "Disabled"
     validations:
       required: false
 
-  - type: markdown
+  - type: dropdown
+    id: s3_encryption
     attributes:
-      value: |
-        <details>
-        <summary><b>ℹ️ CloudFront CDN Specification (modules/cdn)</b></summary>
+      label: "S3 - Server-Side Encryption"
+      description: "Select encryption standard"
+      options:
+        - "Not Requested"
+        - "AES256"
+        - "AWS-KMS"
+    validations:
+      required: false
 
-        * **Origin Domain Name** *(required)*: S3 bucket regional domain or ALB DNS name.
-        * **Origin ID** *(required)*: Unique identifier for the origin.
-        * **Price Class** *(default: PriceClass_100)*: `PriceClass_100` (US/EU) | `PriceClass_200` | `PriceClass_All`
-        * **Default Root Object** *(default: index.html)*: Entry file.
-        * **Viewer Protocol Policy** *(default: redirect-to-https)*: `redirect-to-https` | `https-only`
-        * **Aliases** *(optional)*: Custom CNAME domains (comma-separated).
-        * **ACM Certificate ARN** *(optional)*: Required if aliases are provided (must be in us-east-1).
-        </details>
-
-  - type: textarea
-    id: cdn_input
+  - type: input
+    id: s3_noncurrent_expiration_days
     attributes:
-      label: "CloudFront CDN Configuration"
-      description: "Specify parameters for CloudFront distribution. Leave blank if not requesting CDN."
-      placeholder: |
-        Origin Domain Name: payment-assets.s3.ap-south-1.amazonaws.com
-        Origin ID: S3-payment-assets
-        Price Class: PriceClass_100
-        Default Root Object: index.html
+      label: "S3 - Noncurrent Version Expiration (Days)"
+      description: "Days before noncurrent versions are automatically deleted (default: 30)"
+      placeholder: "30"
+    validations:
+      required: false
+
+  - type: input
+    id: cdn_origin_domain
+    attributes:
+      label: "CloudFront CDN - Origin Domain Name"
+      description: "S3 bucket regional domain or ALB DNS name. Leave blank if not requesting CDN."
+      placeholder: "e.g., payment-assets.s3.ap-south-1.amazonaws.com"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: cdn_price_class
+    attributes:
+      label: "CloudFront CDN - Price Class"
+      description: "Edge locations to deploy"
+      options:
+        - "Not Requested"
+        - "PriceClass_100 (US, Canada, Europe)"
+        - "PriceClass_200 (Most regions)"
+        - "PriceClass_All (Global)"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: cdn_viewer_protocol
+    attributes:
+      label: "CloudFront CDN - Viewer Protocol Policy"
+      description: "HTTPS redirection behavior"
+      options:
+        - "Not Requested"
+        - "redirect-to-https"
+        - "https-only"
     validations:
       required: false
 
   # ============================================================================
-  # 4. COMPUTE & SCHEDULING
+  # 3. COMPUTE & SCHEDULING
   # ============================================================================
   - type: markdown
     attributes:
       value: |
         ---
-        ## 💻 Compute & Scheduling
-
+        ## 💻 2. Compute & Scheduling
         <details>
-        <summary><b>ℹ️ EC2 Compute Specification (modules/compute/ec2)</b></summary>
+        <summary><b>ℹ️ Click for EC2, Key Pair & Scheduler module specifications</b></summary>
 
-        * **Instance Name** *(required)*: Identifier for the EC2 instance.
-        * **Instance Type** *(required)*: Approved types: `t3.micro`, `t3.small`, `t3.medium`, `t3.large`, `m5.large`.
-        * **AMI Image** *(required)*: `amazon-linux-2` | `ubuntu-22.04` | `redhat-9` | custom AMI ID.
-        * **Root Volume Size** *(required)*: EBS size in GB (min: 20, max: 200).
-        * **Subnet ID / Type** *(required)*: Subnet ID or `public` | `private`.
-        * **Ports to Open** *(optional)*: Comma-separated inbound ports (e.g., `80, 443`).
-        * **Minimal Access Intent** *(optional)*: E.g., `S3: assets-storage (read-write), RDS: order-db (connect)`.
+        * **EC2 (`modules/compute/ec2`)**: Standardized compute instance with automated IAM log role and security group.
+        * **SSH Key Pair (`modules/ssh-key-pair`)**: Imports OpenSSH public key.
+        * **Scheduler (`modules/eventbridge_scheduler`)**: Automates periodic tasks (e.g. night instance shutdown).
         </details>
 
-  - type: textarea
-    id: ec2_input
+  - type: input
+    id: ec2_instance_name
     attributes:
-      label: "EC2 Instance Configuration"
-      description: "Specify parameters for EC2 instance(s). Leave blank if not requesting EC2."
-      placeholder: |
-        Instance Name: web-api-server
-        Instance Type: t3.micro
-        AMI Image: amazon-linux-2
-        Root Volume Size: 30
-        Subnet Type: private
-        Ports to Open: 80, 443
-        Access Permissions: S3: assets-storage (read-write)
+      label: "EC2 - Instance Name"
+      description: "Name identifier for the instance. Leave blank if not requesting EC2."
+      placeholder: "e.g., api-worker-server"
     validations:
       required: false
 
-  - type: markdown
+  - type: dropdown
+    id: ec2_instance_type
     attributes:
-      value: |
-        <details>
-        <summary><b>ℹ️ SSH Key Pair Specification (modules/ssh-key-pair)</b></summary>
-
-        * **Key Name** *(required)*: Unique name for the SSH key pair.
-        * **Public Key** *(required)*: OpenSSH public key string (`ssh-rsa ...` or `ssh-ed25519 ...`).
-        </details>
-
-  - type: textarea
-    id: ssh_key_input
-    attributes:
-      label: "SSH Key Pair Configuration"
-      description: "Specify key name and public key. Leave blank if not requesting SSH key."
-      placeholder: |
-        Key Name: devops-bastion-key
-        Public Key: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG... devops@nagarro.com
+      label: "EC2 - Instance Type"
+      description: "FinOps-approved instance sizes"
+      options:
+        - "Not Requested"
+        - "t3.micro (2 vCPU, 1 GB RAM - Dev/Test)"
+        - "t3.small (2 vCPU, 2 GB RAM - Dev)"
+        - "t3.medium (2 vCPU, 4 GB RAM - Staging)"
+        - "t3.large (2 vCPU, 8 GB RAM - General)"
+        - "m5.large (2 vCPU, 8 GB RAM - Production)"
     validations:
       required: false
 
-  - type: markdown
+  - type: dropdown
+    id: ec2_ami_image
     attributes:
-      value: |
-        <details>
-        <summary><b>ℹ️ EventBridge Scheduler Specification (modules/eventbridge_scheduler)</b></summary>
-
-        * **Schedule Name** *(required)*: Name of the automated schedule.
-        * **Schedule Expression** *(required)*: Cron or rate syntax (e.g. `cron(0 18 ? * MON-FRI *)` or `rate(1 day)`).
-        * **Target ARN** *(required)*: ARN of Lambda, ECS task, or SSM automation to invoke.
-        * **Flexible Time Window** *(default: OFF)*: `OFF` | `15 minutes` | `1 hour`
-        </details>
-
-  - type: textarea
-    id: scheduler_input
-    attributes:
-      label: "EventBridge Scheduler Configuration"
-      description: "Specify schedule expression and target ARN. Leave blank if not requesting Scheduler."
-      placeholder: |
-        Schedule Name: nightly-instance-stop
-        Schedule Expression: cron(0 20 ? * MON-FRI *)
-        Target ARN: arn:aws:lambda:ap-south-1:123456789012:function:StopDevInstances
+      label: "EC2 - Operating System / AMI"
+      description: "Pre-approved hardened OS images"
+      options:
+        - "Not Requested"
+        - "amazon-linux-2"
+        - "ubuntu-22.04"
+        - "redhat-9"
     validations:
       required: false
 
-  # ============================================================================
-  # 5. DATABASES
-  # ============================================================================
-  - type: markdown
+  - type: input
+    id: ec2_root_volume_size
     attributes:
-      value: |
-        ---
-        ## 🗄️ Databases
-
-        <details>
-        <summary><b>ℹ️ RDS Instance Specification (modules/rds/instance)</b></summary>
-
-        * **Identifier** *(required)*: Unique database name (letters, numbers, hyphens).
-        * **Engine** *(required)*: `postgres` | `mysql` | `mariadb`
-        * **Engine Version** *(optional)*: E.g., `15.4` (PostgreSQL) or `8.0` (MySQL).
-        * **Instance Class** *(required)*: `db.t4g.micro` | `db.t4g.small` | `db.t4g.medium` | `db.r6g.large`
-        * **Allocated Storage** *(required)*: In GB (min: 20, max: 500).
-        * **Multi-AZ** *(default: false)*: `true` | `false`
-        * **Database Name** *(optional)*: Initial DB name to create inside the instance.
-        * **Publicly Accessible** *(default: false)*: Enforced to `false` by security governance.
-        </details>
-
-  - type: textarea
-    id: rds_instance_input
-    attributes:
-      label: "RDS Instance Configuration"
-      description: "Specify RDS instance parameters. Leave blank if not requesting RDS."
-      placeholder: |
-        Identifier: orders-db
-        Engine: postgres
-        Engine Version: 15.4
-        Instance Class: db.t4g.micro
-        Allocated Storage: 20
-        Multi-AZ: false
-        Database Name: orders_db
+      label: "EC2 - Root Volume Size (GB)"
+      description: "Size in GB (min: 20, max: 200)"
+      placeholder: "30"
     validations:
       required: false
 
-  - type: markdown
+  - type: dropdown
+    id: ec2_subnet_type
     attributes:
-      value: |
-        <details>
-        <summary><b>ℹ️ RDS Parameter Group Specification (modules/rds/parameter_group)</b></summary>
-
-        * **Group Name** *(required)*: Parameter group name.
-        * **Family** *(required)*: Database engine family (e.g. `postgres15`, `mysql8.0`).
-        * **Custom Parameters** *(optional)*: Key-value parameters (e.g. `shared_preload_libraries: pg_stat_statements`).
-        </details>
-
-  - type: textarea
-    id: rds_parameter_group_input
-    attributes:
-      label: "RDS Parameter Group Configuration"
-      description: "Specify DB parameter group family and overrides. Leave blank if not requesting."
-      placeholder: |
-        Group Name: custom-pg15-params
-        Family: postgres15
-        Parameters: max_connections=150, log_statement=ddl
+      label: "EC2 - Subnet Placement"
+      description: "Deploy to private or public subnet"
+      options:
+        - "Not Requested"
+        - "private (Recommended for applications)"
+        - "public (Bastion / Ingress only)"
     validations:
       required: false
 
-  # ============================================================================
-  # 6. NETWORKING & DNS
-  # ============================================================================
-  - type: markdown
+  - type: input
+    id: ec2_ports_to_open
     attributes:
-      value: |
-        ---
-        ## 🌐 Networking & DNS
-
-        <details>
-        <summary><b>ℹ️ VPC & Subnet Specification (modules/vpc, modules/subnets)</b></summary>
-
-        * **VPC Name** *(required)*: Name tag for the VPC.
-        * **VPC CIDR Block** *(required)*: E.g., `10.0.0.0/16`.
-        * **Public Subnet CIDRs** *(optional)*: Comma-separated (e.g., `10.0.1.0/24, 10.0.2.0/24`).
-        * **Private Subnet CIDRs** *(optional)*: Comma-separated (e.g., `10.0.10.0/24, 10.0.20.0/24`).
-        * **Availability Zones** *(optional)*: Comma-separated (e.g., `ap-south-1a, ap-south-1b`).
-        </details>
-
-  - type: textarea
-    id: vpc_subnets_input
-    attributes:
-      label: "VPC & Subnets Configuration"
-      description: "Specify VPC CIDR and Subnet allocations. Leave blank if using default VPC."
-      placeholder: |
-        VPC Name: core-network-vpc
-        VPC CIDR: 10.100.0.0/16
-        Public Subnet CIDRs: 10.100.1.0/24, 10.100.2.0/24
-        Private Subnet CIDRs: 10.100.11.0/24, 10.100.12.0/24
-        Availability Zones: ap-south-1a, ap-south-1b
+      label: "EC2 - Inbound Ports to Open"
+      description: "Comma-separated list of ports (e.g. 80, 443, 8080)"
+      placeholder: "80, 443"
     validations:
       required: false
 
-  - type: markdown
+  - type: dropdown
+    id: ec2_access_intent
     attributes:
-      value: |
-        <details>
-        <summary><b>ℹ️ Elastic IP (EIP) & VPC Flow Logs (modules/eip, modules/vpc-flow-logs)</b></summary>
-
-        * **EIP Name** *(optional)*: Name of Elastic IP for NAT Gateway or Bastion.
-        * **VPC Flow Logs** *(optional)*: `Traffic Type: ALL | ACCEPT | REJECT`, `Retention Days: 14 | 30 | 90`.
-        </details>
-
-  - type: textarea
-    id: eip_flowlogs_input
-    attributes:
-      label: "EIP & VPC Flow Logs Configuration"
-      description: "Specify EIP or Flow Log requests. Leave blank if not required."
-      placeholder: |
-        EIP Name: nat-gw-ip
-        VPC Flow Logs Traffic Type: ALL
-        VPC Flow Logs Retention Days: 30
+      label: "EC2 - Least Privilege IAM Access"
+      description: "Minimal access policy intent automatically synthesized for companion resources"
+      options:
+        - "Not Requested"
+        - "CloudWatch Logs Only (Default baseline)"
+        - "S3 Read-Only + CloudWatch Logs"
+        - "S3 Read-Write + CloudWatch Logs"
+        - "RDS Connect + CloudWatch Logs"
+        - "S3 Read-Write + RDS Connect + CloudWatch Logs"
     validations:
       required: false
 
-  - type: markdown
+  - type: input
+    id: ssh_key_name
     attributes:
-      value: |
-        <details>
-        <summary><b>ℹ️ Route 53 DNS Specification (modules/route53-zone, modules/route53_record)</b></summary>
-
-        * **Hosted Zone Name** *(required)*: Domain name (e.g., `internal.retail.company.com`).
-        * **Zone Type**: `Private` (associated with VPC) | `Public`
-        * **DNS Records** *(optional)*: Record Name, Type (`A`, `CNAME`, `TXT`), Target Value, TTL (default 300).
-        </details>
+      label: "SSH Key Pair - Key Name"
+      description: "Name for SSH key pair. Leave blank if not requesting SSH key."
+      placeholder: "e.g., devops-admin-key"
+    validations:
+      required: false
 
   - type: textarea
-    id: route53_input
+    id: ssh_public_key
     attributes:
-      label: "Route 53 DNS Configuration"
-      description: "Specify Hosted Zone and DNS records. Leave blank if not requesting DNS."
-      placeholder: |
-        Hosted Zone: dev.platform.internal
-        Zone Type: Private
-        Record 1: api.dev.platform.internal -> CNAME -> alb.internal.dns -> TTL: 300
+      label: "SSH Key Pair - Public Key String"
+      description: "Paste your OpenSSH public key (starts with ssh-rsa or ssh-ed25519)"
+      placeholder: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG... devops@nagarro.com"
+    validations:
+      required: false
+
+  - type: input
+    id: scheduler_name
+    attributes:
+      label: "EventBridge Scheduler - Name"
+      description: "Schedule identifier. Leave blank if not requesting scheduler."
+      placeholder: "e.g., nightly-stop-ec2"
+    validations:
+      required: false
+
+  - type: input
+    id: scheduler_expression
+    attributes:
+      label: "EventBridge Scheduler - Expression"
+      description: "Cron or rate expression"
+      placeholder: "e.g., cron(0 20 ? * MON-FRI *) or rate(1 day)"
+    validations:
+      required: false
+
+  - type: input
+    id: scheduler_target_arn
+    attributes:
+      label: "EventBridge Scheduler - Target ARN"
+      description: "Target Lambda, ECS, or SSM Automation ARN to invoke"
+      placeholder: "arn:aws:lambda:ap-south-1:123456789012:function:StopDevInstances"
     validations:
       required: false
 
   # ============================================================================
-  # 7. LOAD BALANCING
+  # 4. DATABASES
   # ============================================================================
   - type: markdown
     attributes:
       value: |
         ---
-        ## ⚖️ Load Balancing
-
+        ## 🗄️ 3. Databases
         <details>
-        <summary><b>ℹ️ Application/Network Load Balancer & Target Groups (modules/load_balancer)</b></summary>
+        <summary><b>ℹ️ Click for RDS Instance & Parameter Group specifications</b></summary>
 
-        * **Load Balancer Name** *(required)*: ALB/NLB name (max 32 chars).
-        * **Type** *(required)*: `application` (HTTP/HTTPS) | `network` (TCP/UDP)
-        * **Internal** *(default: true)*: `true` (internal traffic) | `false` (internet-facing)
-        * **Target Group Name** *(required)*: Target group identifier.
-        * **Target Port & Protocol** *(required)*: E.g., Port `8080`, Protocol `HTTP`.
-        * **Health Check Path** *(default: /health)*: Health check endpoint.
+        * **RDS Instance (`modules/rds/instance`)**: Managed relational database with automated backups and encryption.
+        * **RDS Parameter Group (`modules/rds/parameter_group`)**: Custom database configuration parameters.
         </details>
 
-  - type: textarea
-    id: load_balancer_input
+  - type: input
+    id: rds_identifier
     attributes:
-      label: "Load Balancer & Target Group Configuration"
-      description: "Specify ALB/NLB and Target Group settings. Leave blank if not requesting."
-      placeholder: |
-        LB Name: app-internal-alb
-        Type: application
-        Internal: true
-        Target Group Name: app-api-tg
-        Target Port: 8080
-        Target Protocol: HTTP
-        Health Check Path: /healthz
+      label: "RDS - Database Identifier"
+      description: "Unique name for the database instance. Leave blank if not requesting RDS."
+      placeholder: "e.g., primary-orders-db"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: rds_engine
+    attributes:
+      label: "RDS - Database Engine"
+      description: "Select supported database engine"
+      options:
+        - "Not Requested"
+        - "postgres"
+        - "mysql"
+        - "mariadb"
+    validations:
+      required: false
+
+  - type: input
+    id: rds_engine_version
+    attributes:
+      label: "RDS - Engine Version"
+      description: "Major.minor version (e.g. 15.4 for PostgreSQL, 8.0 for MySQL)"
+      placeholder: "15.4"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: rds_instance_class
+    attributes:
+      label: "RDS - Instance Class"
+      description: "Select approved database compute tier"
+      options:
+        - "Not Requested"
+        - "db.t4g.micro (2 vCPU, 1 GB RAM - Dev/Test)"
+        - "db.t4g.small (2 vCPU, 2 GB RAM - Dev/Staging)"
+        - "db.t4g.medium (2 vCPU, 4 GB RAM - Medium Workloads)"
+        - "db.r6g.large (2 vCPU, 16 GB RAM - Production High Memory)"
+    validations:
+      required: false
+
+  - type: input
+    id: rds_allocated_storage
+    attributes:
+      label: "RDS - Allocated Storage (GB)"
+      description: "Storage size in GB (min: 20, max: 500)"
+      placeholder: "20"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: rds_multi_az
+    attributes:
+      label: "RDS - High Availability (Multi-AZ)"
+      description: "Deploy secondary standby in another AZ"
+      options:
+        - "Not Requested"
+        - "false (Single AZ - Dev/Test cost optimization)"
+        - "true (Multi-AZ - Recommended for Production)"
+    validations:
+      required: false
+
+  - type: input
+    id: rds_database_name
+    attributes:
+      label: "RDS - Initial Database Name"
+      description: "Name of default database schema to create (alphanumeric)"
+      placeholder: "orders_db"
+    validations:
+      required: false
+
+  - type: input
+    id: rds_pg_name
+    attributes:
+      label: "RDS Parameter Group - Name"
+      description: "Name for parameter group. Leave blank if using default."
+      placeholder: "e.g., custom-pg15-config"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: rds_pg_family
+    attributes:
+      label: "RDS Parameter Group - Engine Family"
+      description: "Target engine family"
+      options:
+        - "Not Requested"
+        - "postgres15"
+        - "postgres14"
+        - "mysql8.0"
+        - "mariadb10.6"
     validations:
       required: false
 
   # ============================================================================
-  # 8. CONTAINERS & CI/CD
-  # ============================================================================
-  - type: markdown
-    attributes:
-      value: |
-        ---
-        ## 🚢 Containers & CI/CD Pipelines
-
-        <details>
-        <summary><b>ℹ️ ECR Container Registry Specification (modules/ecr)</b></summary>
-
-        * **Repository Name** *(required)*: Name of the ECR repository (lowercase alphanumeric, hyphens).
-        * **Image Tag Mutability** *(default: IMMUTABLE)*: `IMMUTABLE` | `MUTABLE`
-        * **Scan on Push** *(default: true)*: Automated vulnerability scanning.
-        </details>
-
-  - type: textarea
-    id: ecr_input
-    attributes:
-      label: "ECR Repository Configuration"
-      description: "Specify repository name and mutability. Leave blank if not requesting ECR."
-      placeholder: |
-        Repository Name: auth-service
-        Image Tag Mutability: IMMUTABLE
-        Scan on Push: true
-    validations:
-      required: false
-
-  - type: markdown
-    attributes:
-      value: |
-        <details>
-        <summary><b>ℹ️ CI/CD Pipeline Suite Specification (modules/ci-cd)</b></summary>
-
-        * **CodeBuild Project Name** *(optional)*: Name of the build project.
-        * **Build Image / Compute** *(optional)*: E.g., `aws/codebuild/amazonlinux2-x86_64-standard:4.0`, `BUILD_GENERAL1_SMALL`.
-        * **CodeDeploy App & Group** *(optional)*: Application and deployment group names.
-        * **CodePipeline Name** *(optional)*: End-to-end pipeline name.
-        * **CodeStar Connection** *(optional)*: Connection name for GitHub/Bitbucket authentication.
-        </details>
-
-  - type: textarea
-    id: cicd_input
-    attributes:
-      label: "CI/CD Pipeline Configuration (CodeBuild, CodeDeploy, CodePipeline)"
-      description: "Specify CI/CD build and pipeline parameters. Leave blank if not requesting."
-      placeholder: |
-        Pipeline Name: payment-service-pipeline
-        Build Project Name: payment-service-build
-        CodeStar Connection Name: github-enterprise-conn
-        Source Repository: retail-platform/payment-service
-        Source Branch: main
-    validations:
-      required: false
-
-  # ============================================================================
-  # 9. SECURITY, ENCRYPTION & IAM
-  # ============================================================================
-  - type: markdown
-    attributes:
-      value: |
-        ---
-        ## 🔒 Security, Encryption & IAM
-
-        <details>
-        <summary><b>ℹ️ Security Group Specification (modules/security-group)</b></summary>
-
-        * **Name** *(required)*: Security group identifier.
-        * **Description** *(required)*: Purpose of the security group.
-        * **Ingress Rules** *(required)*: Format: `Port | Protocol | CIDR or SG-ID`.
-        * *Policy Restriction: 0.0.0.0/0 on port 22 (SSH) or 3389 (RDP) is strictly prohibited.*
-        </details>
-
-  - type: textarea
-    id: security_group_input
-    attributes:
-      label: "Security Group Configuration"
-      description: "Specify firewall inbound rules. Leave blank if not requesting."
-      placeholder: |
-        Name: backend-api-sg
-        Description: Allows traffic from ALB to microservice port 8080
-        Ingress 1: Port 8080 | TCP | 10.100.0.0/16
-        Ingress 2: Port 443 | TCP | 10.100.0.0/16
-    validations:
-      required: false
-
-  - type: markdown
-    attributes:
-      value: |
-        <details>
-        <summary><b>ℹ️ KMS Key & Secrets Manager Specification (modules/kms, modules/secret-manager)</b></summary>
-
-        * **KMS Key Description** *(required)*: Description for encryption key.
-        * **KMS Deletion Window** *(default: 30)*: Days before deletion (7 to 30 days).
-        * **Secrets Manager Secret Name** *(required)*: Path/name (e.g., `/dev/payments/stripe_api_key`).
-        * **Secret Description** *(required)*: Purpose of the secret.
-        </details>
-
-  - type: textarea
-    id: kms_secrets_input
-    attributes:
-      label: "KMS & Secrets Manager Configuration"
-      description: "Specify encryption key or secret requirements. Leave blank if not requesting."
-      placeholder: |
-        KMS Key Description: Customer data encryption key for payment service
-        KMS Deletion Window: 30
-        Secret Name: /dev/payment-service/db-credentials
-        Secret Description: Master DB credentials managed via Secrets Manager
-    validations:
-      required: false
-
-  - type: markdown
-    attributes:
-      value: |
-        <details>
-        <summary><b>ℹ️ IAM Roles, Custom Policies & Elevated Access (modules/iam-role, modules/policy, modules/readonly-plus-role)</b></summary>
-
-        * **Custom IAM Role**: Role name, Trust Service (`ec2.amazonaws.com`, `lambda.amazonaws.com`), attached policy ARNs.
-        * **Custom Policy**: Policy name, actions list (e.g. `s3:GetObject`), resources list (exact ARNs, no `*`).
-        * **Elevated User Access (ReadOnlyPlus)**: User email (`firstname.lastname@nagarro.com`), role suffix (`EC2Admin`, `BillingView`), business justification (with ticket number).
-        </details>
-
-  - type: textarea
-    id: iam_access_input
-    attributes:
-      label: "IAM Roles, Policies & Elevated Access Configuration"
-      description: "Specify custom IAM roles or elevated user permissions. Leave blank if not requesting."
-      placeholder: |
-        Elevated Access Request:
-        User Email: alice.smith@nagarro.com
-        Role Suffix: EC2Admin
-        Business Justification: Troubleshooting production deployment failure. Ticket: INC-98124.
-    validations:
-      required: false
-
-  # ============================================================================
-  # 10. OBSERVABILITY & NOTIFICATIONS
+  # 5. NETWORKING & DNS
   # ============================================================================
   - type: markdown
     attributes:
       value: |
         ---
-        ## 📊 Observability & Notifications
-
+        ## 🌐 4. Networking & DNS
         <details>
-        <summary><b>ℹ️ CloudWatch Logs & Alarms (modules/cloud-watch)</b></summary>
+        <summary><b>ℹ️ Click for VPC, Subnets, EIP, Flow Logs & Route53 specifications</b></summary>
 
-        * **Log Group Name** *(required)*: E.g., `/aws/apps/payment-service`.
-        * **Retention Period** *(default: 30)*: Days (7, 14, 30, 60, 90, 365).
-        * **Alarm Metric** *(optional)*: Metric Name (`CPUUtilization`, `5XXError`), Threshold, Evaluation Periods.
+        * **VPC (`modules/vpc`)**: Isolated virtual network.
+        * **Subnets (`modules/subnets`)**: Public and private subnet tiers across multiple availability zones.
+        * **Route53 (`modules/route53-zone`, `modules/route53_record`)**: DNS hosted zone and records.
         </details>
 
-  - type: textarea
-    id: cloudwatch_input
+  - type: input
+    id: vpc_name
     attributes:
-      label: "CloudWatch Logs & Alerts Configuration"
-      description: "Specify log retention or alarm parameters. Leave blank if not requesting."
-      placeholder: |
-        Log Group Name: /aws/apps/payment-service
-        Retention Days: 30
-        Alarm Name: high-cpu-alert
-        Metric: CPUUtilization > 80% for 2 periods of 5 minutes
+      label: "VPC - Network Name"
+      description: "Identifier for new VPC. Leave blank if using existing VPC."
+      placeholder: "e.g., payment-core-vpc"
     validations:
       required: false
 
-  - type: markdown
+  - type: input
+    id: vpc_cidr_block
     attributes:
-      value: |
-        <details>
-        <summary><b>ℹ️ AWS Budget, Access Analyzer & SES (modules/aws-budget, access-analyzer, ses)</b></summary>
+      label: "VPC - CIDR Block"
+      description: "Primary IPv4 network range (e.g. 10.100.0.0/16)"
+      placeholder: "10.100.0.0/16"
+    validations:
+      required: false
 
-        * **AWS Budget**: Budget Name, Monthly Limit Amount (USD), Alert Threshold (e.g. 80%, 100%), Notification Email.
-        * **Access Analyzer**: Analyzer Name, Type (`ACCOUNT` | `ORGANIZATION`).
-        * **SES Email Identity**: Domain or verified email address for outgoing notification emails.
-        </details>
-
-  - type: textarea
-    id: governance_tools_input
+  - type: input
+    id: public_subnet_cidrs
     attributes:
-      label: "Budgets, Access Analyzer & SES Configuration"
-      description: "Specify cost alerts, security analyzer, or SES identities. Leave blank if not requesting."
-      placeholder: |
-        Budget Name: payment-service-monthly-budget
-        Monthly Limit USD: 500
-        Alert Threshold: 80%
-        Subscriber Email: tech.owner@nagarro.com
+      label: "Subnets - Public Subnet CIDRs"
+      description: "Comma-separated CIDRs for public tier"
+      placeholder: "10.100.1.0/24, 10.100.2.0/24"
+    validations:
+      required: false
+
+  - type: input
+    id: private_subnet_cidrs
+    attributes:
+      label: "Subnets - Private Subnet CIDRs"
+      description: "Comma-separated CIDRs for private tier"
+      placeholder: "10.100.11.0/24, 10.100.12.0/24"
+    validations:
+      required: false
+
+  - type: input
+    id: eip_name
+    attributes:
+      label: "Elastic IP (EIP) - Name"
+      description: "Name for Elastic IP. Leave blank if not requesting EIP."
+      placeholder: "e.g., nat-gateway-eip"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: vpc_flow_logs_traffic
+    attributes:
+      label: "VPC Flow Logs - Traffic Type"
+      description: "Types of traffic to capture"
+      options:
+        - "Not Requested"
+        - "ALL"
+        - "ACCEPT"
+        - "REJECT"
+    validations:
+      required: false
+
+  - type: input
+    id: route53_zone_name
+    attributes:
+      label: "Route 53 - Hosted Zone Domain"
+      description: "Domain name for DNS zone. Leave blank if not requesting DNS."
+      placeholder: "e.g., dev.platform.internal"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: route53_zone_type
+    attributes:
+      label: "Route 53 - Zone Type"
+      description: "Select private or public zone"
+      options:
+        - "Not Requested"
+        - "Private (VPC Associated)"
+        - "Public"
+    validations:
+      required: false
+
+  - type: input
+    id: route53_record_name
+    attributes:
+      label: "Route 53 - Record Name"
+      description: "Hostname for record"
+      placeholder: "e.g., api.dev.platform.internal"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: route53_record_type
+    attributes:
+      label: "Route 53 - Record Type"
+      description: "DNS record type"
+      options:
+        - "Not Requested"
+        - "A"
+        - "CNAME"
+        - "TXT"
+    validations:
+      required: false
+
+  - type: input
+    id: route53_record_target
+    attributes:
+      label: "Route 53 - Record Target"
+      description: "Target IP address or canonical hostname"
+      placeholder: "e.g., internal-alb-12345.ap-south-1.elb.amazonaws.com"
     validations:
       required: false
 
   # ============================================================================
-  # 11. MANDATORY GOVERNANCE TAGS (global_tags)
+  # 6. LOAD BALANCING
   # ============================================================================
   - type: markdown
     attributes:
       value: |
         ---
-        ## 📋 Mandatory Governance & Project Metadata
+        ## ⚖️ 5. Load Balancing
+        <details>
+        <summary><b>ℹ️ Click for ALB/NLB & Target Group module specifications</b></summary>
+
+        * **Load Balancer Core (`modules/load_balancer/load_balancer_core`)**: Highly available load balancer across availability zones.
+        * **Target Group (`modules/load_balancer/target_group`)**: Directs traffic to EC2 or IP targets with health checks.
+        </details>
+
+  - type: input
+    id: alb_name
+    attributes:
+      label: "Load Balancer - Name"
+      description: "Load Balancer identifier (max 32 chars). Leave blank if not requesting ALB."
+      placeholder: "e.g., app-internal-alb"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: alb_type
+    attributes:
+      label: "Load Balancer - Type"
+      description: "Application (HTTP/HTTPS) or Network (TCP/UDP)"
+      options:
+        - "Not Requested"
+        - "application"
+        - "network"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: alb_scheme
+    attributes:
+      label: "Load Balancer - Scheme"
+      description: "Internal (private VPC) or Internet-facing"
+      options:
+        - "Not Requested"
+        - "internal (Private - Default)"
+        - "internet-facing (Public)"
+    validations:
+      required: false
+
+  - type: input
+    id: tg_name
+    attributes:
+      label: "Target Group - Name"
+      description: "Name for Target Group. Leave blank if not requesting."
+      placeholder: "e.g., app-api-tg"
+    validations:
+      required: false
+
+  - type: input
+    id: tg_port
+    attributes:
+      label: "Target Group - Port"
+      description: "Backend destination port (e.g. 80, 443, 8080)"
+      placeholder: "8080"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: tg_protocol
+    attributes:
+      label: "Target Group - Protocol"
+      description: "Backend protocol"
+      options:
+        - "Not Requested"
+        - "HTTP"
+        - "HTTPS"
+        - "TCP"
+    validations:
+      required: false
+
+  - type: input
+    id: tg_health_check_path
+    attributes:
+      label: "Target Group - Health Check Path"
+      description: "Destination URL path for health check requests"
+      placeholder: "/healthz"
+    validations:
+      required: false
+
+  # ============================================================================
+  # 7. CONTAINERS & CI/CD
+  # ============================================================================
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## 🚢 6. Containers & CI/CD
+        <details>
+        <summary><b>ℹ️ Click for ECR & CI/CD pipeline module specifications</b></summary>
+
+        * **ECR (`modules/ecr`)**: Secure Docker container image registry with vulnerability scanning.
+        * **CI/CD (`modules/ci-cd`)**: AWS native deployment pipeline suite (CodeBuild, CodeDeploy, CodePipeline).
+        </details>
+
+  - type: input
+    id: ecr_repository_name
+    attributes:
+      label: "ECR - Repository Name"
+      description: "Repository name (lowercase alphanumeric and hyphens). Leave blank if not requesting ECR."
+      placeholder: "e.g., auth-microservice"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: ecr_tag_mutability
+    attributes:
+      label: "ECR - Image Tag Mutability"
+      description: "Prevent overriding existing container image tags"
+      options:
+        - "Not Requested"
+        - "IMMUTABLE (Recommended)"
+        - "MUTABLE"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: ecr_scan_on_push
+    attributes:
+      label: "ECR - Scan on Push"
+      description: "Automated vulnerability scanning on image push"
+      options:
+        - "Not Requested"
+        - "Enabled (true - Recommended)"
+        - "Disabled (false)"
+    validations:
+      required: false
+
+  - type: input
+    id: cicd_pipeline_name
+    attributes:
+      label: "CI/CD - Pipeline Name"
+      description: "Name of the deployment pipeline. Leave blank if not requesting CI/CD."
+      placeholder: "e.g., payment-service-pipeline"
+    validations:
+      required: false
+
+  - type: input
+    id: cicd_source_repo
+    attributes:
+      label: "CI/CD - Source Repository"
+      description: "GitHub repository path (org/repo)"
+      placeholder: "retail-platform/payment-service"
+    validations:
+      required: false
+
+  - type: input
+    id: cicd_source_branch
+    attributes:
+      label: "CI/CD - Source Branch"
+      description: "Target branch that triggers pipeline"
+      placeholder: "develop"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: cicd_build_compute
+    attributes:
+      label: "CI/CD - CodeBuild Compute Size"
+      description: "Build environment compute tier"
+      options:
+        - "Not Requested"
+        - "BUILD_GENERAL1_SMALL (3 GB RAM, 2 vCPU)"
+        - "BUILD_GENERAL1_MEDIUM (7 GB RAM, 4 vCPU)"
+        - "BUILD_GENERAL1_LARGE (15 GB RAM, 8 vCPU)"
+    validations:
+      required: false
+
+  # ============================================================================
+  # 8. SECURITY, ENCRYPTION & IAM
+  # ============================================================================
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## 🔒 7. Security, Encryption & IAM
+        <details>
+        <summary><b>ℹ️ Click for Security Group, KMS, Secrets Manager & Role specifications</b></summary>
+
+        * **Security Group (`modules/security-group`)**: Stateful network firewall. 0.0.0.0/0 on SSH/RDP is strictly prohibited.
+        * **KMS (`modules/kms`)**: Customer managed encryption key with automated rotation.
+        * **Secrets Manager (`modules/secret-manager`)**: Encrypted secret storage for passwords and API tokens.
+        * **ReadOnlyPlus Role (`modules/readonly-plus-role`)**: Time-bound elevated role assignment for troubleshooting.
+        </details>
+
+  - type: input
+    id: sg_name
+    attributes:
+      label: "Security Group - Name"
+      description: "Security group identifier. Leave blank if not requesting."
+      placeholder: "e.g., backend-microservice-sg"
+    validations:
+      required: false
+
+  - type: input
+    id: sg_description
+    attributes:
+      label: "Security Group - Description"
+      description: "Business purpose of the security group"
+      placeholder: "Allows internal HTTP traffic from ALB to microservice port 8080"
+    validations:
+      required: false
+
+  - type: input
+    id: sg_ingress_port
+    attributes:
+      label: "Security Group - Ingress Port"
+      description: "Inbound port to allow (e.g. 80, 443, 8080)"
+      placeholder: "8080"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: sg_ingress_protocol
+    attributes:
+      label: "Security Group - Ingress Protocol"
+      description: "Protocol for rule"
+      options:
+        - "Not Requested"
+        - "tcp"
+        - "udp"
+        - "-1 (all protocols)"
+    validations:
+      required: false
+
+  - type: input
+    id: sg_ingress_cidr
+    attributes:
+      label: "Security Group - Ingress CIDR / SG ID"
+      description: "Allowed source IP range or Security Group ID"
+      placeholder: "10.100.0.0/16"
+    validations:
+      required: false
+
+  - type: input
+    id: kms_description
+    attributes:
+      label: "KMS Key - Description"
+      description: "Purpose of the KMS key. Leave blank if not requesting KMS."
+      placeholder: "e.g., Encryption key for payment platform customer data"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: kms_deletion_window
+    attributes:
+      label: "KMS Key - Deletion Window (Days)"
+      description: "Waiting period before key deletion"
+      options:
+        - "Not Requested"
+        - "30 days (Recommended)"
+        - "14 days"
+        - "7 days"
+    validations:
+      required: false
+
+  - type: input
+    id: secret_name
+    attributes:
+      label: "Secrets Manager - Secret Name"
+      description: "Hierarchical path for secret. Leave blank if not requesting."
+      placeholder: "e.g., /dev/payments/database_credentials"
+    validations:
+      required: false
+
+  - type: input
+    id: secret_description
+    attributes:
+      label: "Secrets Manager - Description"
+      description: "Description of the secret content"
+      placeholder: "Master database connection credentials"
+    validations:
+      required: false
+
+  - type: input
+    id: elevated_user_email
+    attributes:
+      label: "Elevated IAM Access - User Email"
+      description: "Email address of user requesting elevated role. Leave blank if not requesting access."
+      placeholder: "firstname.lastname@nagarro.com"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: elevated_role_suffix
+    attributes:
+      label: "Elevated IAM Access - Role"
+      description: "Select pre-defined elevated role"
+      options:
+        - "Not Requested"
+        - "ReadOnlyPlus-EC2Admin"
+        - "ReadOnlyPlus-BillingView"
+        - "ReadOnlyPlus-DevOpsLead"
+    validations:
+      required: false
+
+  - type: input
+    id: elevated_access_justification
+    attributes:
+      label: "Elevated IAM Access - Business Justification"
+      description: "Ticket number and business justification for temporary elevated access"
+      placeholder: "Troubleshooting prod incident INC-90124. Access needed for 14 days."
+    validations:
+      required: false
+
+  # ============================================================================
+  # 9. OBSERVABILITY & GOVERNANCE TOOLS
+  # ============================================================================
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## 📊 8. Observability & Cost Governance
+        <details>
+        <summary><b>ℹ️ Click for CloudWatch, Budget & Security Analyzer specifications</b></summary>
+
+        * **CloudWatch Logs (`modules/cloud-watch/logs`)**: Centralized application log storage and retention.
+        * **AWS Budget (`modules/aws-budget`)**: Real-time spend tracking and automated email alerts.
+        * **Access Analyzer (`modules/access-analyzer`)**: Detects external public resource sharing.
+        </details>
+
+  - type: input
+    id: log_group_name
+    attributes:
+      label: "CloudWatch Logs - Log Group Name"
+      description: "Path for log group. Leave blank if not requesting log group."
+      placeholder: "e.g., /aws/apps/payment-platform"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: log_retention_days
+    attributes:
+      label: "CloudWatch Logs - Retention Period"
+      description: "Retention days before logs are deleted"
+      options:
+        - "Not Requested"
+        - "30 days (Standard Dev)"
+        - "14 days"
+        - "60 days"
+        - "90 days (Production standard)"
+        - "365 days"
+    validations:
+      required: false
+
+  - type: input
+    id: budget_name
+    attributes:
+      label: "AWS Budget - Budget Name"
+      description: "Name for monthly cost budget. Leave blank if not requesting budget."
+      placeholder: "e.g., payment-service-monthly-budget"
+    validations:
+      required: false
+
+  - type: input
+    id: budget_limit_usd
+    attributes:
+      label: "AWS Budget - Monthly Limit (USD)"
+      description: "Monthly budget ceiling in USD"
+      placeholder: "500"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: access_analyzer_type
+    attributes:
+      label: "IAM Access Analyzer - Analyzer Scope"
+      description: "Scope of the external access analyzer"
+      options:
+        - "Not Requested"
+        - "ACCOUNT"
+        - "ORGANIZATION"
+    validations:
+      required: false
+
+  - type: input
+    id: ses_email_identity
+    attributes:
+      label: "SES - Verified Email Identity"
+      description: "Sender email address to verify in Amazon SES. Leave blank if not requesting."
+      placeholder: "noreply@nagarro.com"
+    validations:
+      required: false
+
+  # ============================================================================
+  # 10. MANDATORY GOVERNANCE TAGS (global_tags)
+  # ============================================================================
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ## 📋 9. Mandatory Project & Governance Metadata
         All provisioned resources are tagged according to the **`modules/global_tags`** compliance policy. All fields in this section are mandatory.
 
   - type: input
